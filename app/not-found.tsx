@@ -1,0 +1,2 @@
+import Link from 'next/link';
+export default function NotFound() { return <main className="mx-auto grid min-h-[70vh] max-w-xl place-items-center px-5 py-16 text-center"><div><div className="text-xs font-bold uppercase tracking-[.2em] text-emerald-700">404</div><h1 className="display mt-3 text-5xl font-bold text-emerald-950">Properti tidak ditemukan</h1><p className="mt-3 text-slate-500">Listing mungkin sudah diarsipkan atau belum disetujui.</p><Link href="/" className="btn btn-primary mt-7">Kembali ke beranda</Link></div></main>; }
