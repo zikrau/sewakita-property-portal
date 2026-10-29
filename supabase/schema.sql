@@ -23,7 +23,7 @@ create table if not exists public.profiles (
 create table if not exists public.listings (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references public.profiles(id) on delete restrict,
-  owner_display_name text not null default 'Pemilik SewaKita',
+  owner_display_name text not null default 'Pemilik SYUZISHIM',
   title text not null check (char_length(title) between 5 and 120),
   property_type text not null check (property_type in ('kost','rumah','kontrakan','apartemen','ruko','villa','lainnya')),
   city text not null check (char_length(city) between 2 and 80),

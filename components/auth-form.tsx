@@ -48,7 +48,7 @@ export function AuthForm() {
   return (
     <div className="w-full rounded-[32px] bg-white p-8 card-shadow">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-900 text-white"><LockKeyhole /></div>
-      <h1 className="display mt-5 text-center text-4xl font-bold text-emerald-950">{mode === 'login' ? 'Masuk ke SewaKita' : mode === 'signup' ? 'Buat akun SewaKita' : 'Reset password'}</h1>
+      <h1 className="display mt-5 text-center text-4xl font-bold text-emerald-950">{mode === 'login' ? 'Masuk ke SYUZISHIM' : mode === 'signup' ? 'Buat akun SYUZISHIM' : 'Reset password'}</h1>
       <p className="mt-2 text-center text-slate-500">Akun pengguna tidak bisa menaikkan dirinya menjadi moderator/admin.</p>
       <form className="mt-8 space-y-4" onSubmit={submit}>
         {mode === 'signup' && <><label className="block"><span className="mb-2 block text-sm font-bold">Nama</span><div className="relative"><UserRound className="absolute left-3 top-3.5 text-slate-400" size={18} /><input required value={name} onChange={e => setName(e.target.value)} className="input pl-10" placeholder="Nama lengkap" /></div></label><label className="block"><span className="mb-2 block text-sm font-bold">WhatsApp</span><input value={phone} onChange={e => setPhone(e.target.value)} className="input" placeholder="08xxxxxxxxxx" /></label></>}

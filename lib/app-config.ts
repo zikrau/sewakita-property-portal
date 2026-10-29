@@ -4,8 +4,8 @@ export const isSupabaseConfigured = () => Boolean(
 );
 
 export const siteConfig = {
-  name: 'SewaKita',
-  description: 'Portal informasi kost, rumah, kontrakan, apartemen, dan properti sewa lainnya.',
+  name: 'SYUZISHIM',
+  description: 'Platform hunian dan marketplace produk bekas layak pakai antarmahasiswa.',
   whatsappAdmin: process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? '',
   appUrl: process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
 };

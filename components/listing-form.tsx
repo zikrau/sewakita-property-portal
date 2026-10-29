@@ -114,7 +114,7 @@ const [campusTravelMinutes, setCampusTravelMinutes] = useState(
     const newStatus = action === 'draft' ? 'draft' : 'pending';
 
     const createData = {
-      owner_display_name: ownerName || 'Pemilik SewaKita',
+      owner_display_name: ownerName || 'Pemilik SYUZISHIM',
       title: title.trim(),
       property_type: propertyType,
       city: city.trim(),
