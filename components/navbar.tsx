@@ -11,16 +11,52 @@ export function Navbar() {
 
   useEffect(() => {
     const supabase = createClient();
-    void supabase.auth.getUser().then(({ data }) => {
-      setSignedIn(Boolean(data.user));
+
+    let active = true;
+
+    async function checkUser() {
+      const { data, error } = await supabase.auth.getUser();
+
+      if (active && !error) {
+        setSignedIn(Boolean(data.user));
+      }
+    }
+
+    void checkUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!active) return;
+
+      setSignedIn(Boolean(session?.user));
+
+      if (event === 'SIGNED_OUT') {
+        setOpen(false);
+      }
     });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   async function signOut() {
     const supabase = createClient();
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      alert('Gagal keluar. Silakan coba lagi.');
+      return;
+    }
+
+    setSignedIn(false);
+    setOpen(false);
     window.location.href = '/';
   }
+
+  const authLoading = signedIn === null;
 
   return (
     <header className="sticky top-0 z-50 border-b border-stone-200/70 bg-white/90 backdrop-blur">
@@ -33,6 +69,7 @@ export function Navbar() {
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-900 text-white">
             <Building2 size={20} />
           </span>
+
           <span>
             <span className="block display text-xl font-bold text-emerald-950">
               SYUZISHIM
@@ -55,7 +92,9 @@ export function Navbar() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          {signedIn ? (
+          {authLoading ? (
+            <span className="text-sm text-slate-500">Memuat...</span>
+          ) : signedIn ? (
             <>
               <Link className="btn btn-secondary" href="/dashboard">
                 Dashboard
@@ -95,20 +134,21 @@ export function Navbar() {
               Pasang Iklan
             </Link>
 
-            {signedIn ? (
-              <Link href="/dashboard" onClick={() => setOpen(false)}>
-                Dashboard
-              </Link>
-            ) : (
-              <Link href="/login" onClick={() => setOpen(false)}>
-                Masuk / Daftar
-              </Link>
-            )}
-
-            {signedIn && (
-              <button className="text-left text-red-700" onClick={signOut}>
-                Keluar
-              </button>
+            {!authLoading && (
+              signedIn ? (
+                <>
+                  <Link href="/dashboard" onClick={() => setOpen(false)}>
+                    Dashboard
+                  </Link>
+                  <button className="text-left text-red-700" onClick={signOut}>
+                    Keluar
+                  </button>
+                </>
+              ) : (
+                <Link href="/login" onClick={() => setOpen(false)}>
+                  Masuk / Daftar
+                </Link>
+              )
             )}
           </div>
         </div>

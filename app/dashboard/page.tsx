@@ -124,10 +124,20 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <Link className="btn btn-primary" href="/dashboard/new">
-          <Plus size={17} />
-          Tambah properti
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link className="btn btn-primary" href="/dashboard/new">
+            <Plus size={17} />
+            Tambah properti
+          </Link>
+
+          <Link
+            className="btn btn-primary"
+            href="/dashboard/produk-baru"
+          >
+            <Plus size={17} />
+            Jual Produk Mahasiswa
+          </Link>
+        </div>
       </div>
 
       <div className="mt-8 grid gap-5 md:grid-cols-3">
