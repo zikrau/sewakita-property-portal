@@ -56,3 +56,21 @@ export async function getApprovedUsedProducts(
 
   return (data ?? []) as unknown as UsedProduct[];
 }
+export async function getUsedProductById(
+  supabase: SupabaseClient,
+  id: string
+): Promise<UsedProduct | null> {
+  const { data, error } = await supabase
+    .from('used_products')
+    .select(
+      'id, seller_id, title, description, category, item_condition, price, image_urls, city, area, status, sale_status, created_at, updated_at'
+    )
+    .eq('id', id)
+    .eq('status', 'approved')
+    .eq('sale_status', 'available')
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return (data ?? null) as unknown as UsedProduct | null;
+}

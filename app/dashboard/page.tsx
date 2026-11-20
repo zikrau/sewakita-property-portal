@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
@@ -19,36 +20,28 @@ async function archiveListing(formData: FormData) {
   'use server';
 
   const listingId = String(formData.get('listing_id') || '');
-
   if (!listingId) return;
 
   const supabase = await createClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect('/login');
-  }
+  if (!user) redirect('/login');
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('listings')
     .update({
       status: 'archived',
       updated_at: new Date().toISOString(),
     })
     .eq('id', listingId)
-    .eq('owner_id', user.id)
-    .select('id, status')
-    .single();
+    .eq('owner_id', user.id);
 
   if (error) {
     console.error('GAGAL ARSIP:', error);
     throw new Error(`Gagal mengarsipkan: ${error.message}`);
   }
-
-  console.log('ARSIP BERHASIL:', data);
 
   revalidatePath('/dashboard');
   revalidatePath('/');
@@ -58,18 +51,14 @@ async function restoreListing(formData: FormData) {
   'use server';
 
   const listingId = String(formData.get('listing_id') || '');
-
   if (!listingId) return;
 
   const supabase = await createClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect('/login');
-  }
+  if (!user) redirect('/login');
 
   const { error } = await supabase
     .from('listings')
@@ -89,6 +78,7 @@ async function restoreListing(formData: FormData) {
   revalidatePath('/dashboard');
   revalidatePath('/');
 }
+
 export default async function DashboardPage() {
   const supabase = await createClient();
 
@@ -98,14 +88,35 @@ export default async function DashboardPage() {
 
   if (!user) redirect('/login');
 
-  const [{ data: profile }, { data: listings }] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', user.id).single(),
+  const [
+    { data: profile },
+    { data: listings },
+    { data: usedProducts, error: usedProductsError },
+  ] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single(),
+
     supabase
       .from('listings')
       .select('*')
       .eq('owner_id', user.id)
       .order('updated_at', { ascending: false }),
+
+    supabase
+      .from('used_products')
+      .select('*')
+      .eq('seller_id', user.id)
+      .order('updated_at', { ascending: false }),
   ]);
+
+  if (usedProductsError) {
+    console.error('GAGAL MENGAMBIL PRODUK MAHASISWA:', usedProductsError);
+  }
+
+  const products = usedProducts ?? [];
 
   return (
     <main className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
@@ -120,7 +131,7 @@ export default async function DashboardPage() {
           </h1>
 
           <p className="mt-2 text-slate-500">
-            Kelola listing dan profil Anda dari satu tempat.
+            Kelola listing hunian, produk mahasiswa, dan profil Anda.
           </p>
         </div>
 
@@ -130,165 +141,272 @@ export default async function DashboardPage() {
             Tambah properti
           </Link>
 
-          <Link
-            className="btn btn-primary"
-            href="/dashboard/produk-baru"
-          >
+          <Link className="btn btn-primary" href="/dashboard/produk-baru">
             <Plus size={17} />
             Jual Produk Mahasiswa
           </Link>
         </div>
       </div>
 
-      <div className="mt-8 grid gap-5 md:grid-cols-3">
+      <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-3xl bg-emerald-950 p-6 text-white">
-          <div className="text-sm text-emerald-200">Total listing</div>
+          <div className="text-sm text-emerald-200">Total properti</div>
           <div className="mt-2 text-4xl font-bold">
             {listings?.length ?? 0}
           </div>
         </div>
 
         <div className="rounded-3xl bg-white p-6 card-shadow">
-          <div className="text-sm text-slate-500">Menunggu</div>
+          <div className="text-sm text-slate-500">Produk mahasiswa</div>
           <div className="mt-2 text-4xl font-bold">
-            {listings?.filter((x: Listing) => x.status === 'pending').length ?? 0}
+            {products.length}
+          </div>
+        </div>
+
+        <div className="rounded-3xl bg-white p-6 card-shadow">
+          <div className="text-sm text-slate-500">Menunggu moderasi</div>
+          <div className="mt-2 text-4xl font-bold">
+            {(listings ?? []).filter((x: Listing) => x.status === 'pending').length +
+              products.filter((x: any) => x.status === 'pending').length}
           </div>
         </div>
 
         <div className="rounded-3xl bg-white p-6 card-shadow">
           <div className="text-sm text-slate-500">Tayang</div>
           <div className="mt-2 text-4xl font-bold">
-            {listings?.filter((x: Listing) => x.status === 'approved').length ?? 0}
+            {(listings ?? []).filter((x: Listing) => x.status === 'approved').length +
+              products.filter((x: any) => x.status === 'approved').length}
           </div>
         </div>
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_.38fr]">
-        <section className="rounded-3xl bg-white p-6 card-shadow">
-          <div className="flex gap-3 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-950">
-            <ShieldCheck size={18} className="mt-0.5" />
+        <div className="space-y-8">
+          {/* DAFTAR PROPERTI */}
+          <section className="rounded-3xl bg-white p-6 card-shadow">
+            <h2 className="display text-2xl font-bold text-emerald-950">
+              Properti Saya
+            </h2>
 
-            <span>
-              Keamanan: akun Anda tidak memiliki hak untuk mengubah role,
-              verifikasi, featured, atau menghapus data secara permanen.
-            </span>
-          </div>
+            <div className="mt-5 flex gap-3 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-950">
+              <ShieldCheck size={18} className="mt-0.5 shrink-0" />
+              <span>
+                Keamanan: akun Anda tidak memiliki hak untuk mengubah role,
+                verifikasi, featured, atau menghapus data secara permanen.
+              </span>
+            </div>
 
-          <div className="mt-7 overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-stone-200 text-slate-500">
-                  <th className="py-3">Properti</th>
-                  <th>Status</th>
-                  <th>Harga</th>
-                  <th>Diubah</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
+            <div className="mt-6 overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-stone-200 text-slate-500">
+                    <th className="py-3">Properti</th>
+                    <th>Status</th>
+                    <th>Harga</th>
+                    <th>Diubah</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
 
-              <tbody>
-                {(listings ?? []).map((listing: Listing) => (
-                  <tr
-                    key={listing.id}
-                    className="border-b border-stone-100"
-                  >
-                    <td className="py-4 font-semibold">
-                      {listing.title}
-                    </td>
+                <tbody>
+                  {(listings ?? []).map((listing: Listing) => (
+                    <tr key={listing.id} className="border-b border-stone-100">
+                      <td className="py-4 font-semibold">
+                        {listing.title}
+                      </td>
 
-                    <td>
-                      <span
-                        className={`badge ${
-                          listing.status === 'approved'
-                            ? 'bg-emerald-50 text-emerald-800'
-                            : listing.status === 'rejected'
-                              ? 'bg-red-50 text-red-800'
-                              : listing.status === 'archived'
-                                ? 'bg-slate-100 text-slate-700'
-                                : 'bg-amber-50 text-amber-800'
-                        }`}
-                      >
-                        {statusLabel[listing.status]}
-                      </span>
+                      <td>
+                        <span
+                          className={`badge ${
+                            listing.status === 'approved'
+                              ? 'bg-emerald-50 text-emerald-800'
+                              : listing.status === 'rejected'
+                                ? 'bg-red-50 text-red-800'
+                                : listing.status === 'archived'
+                                  ? 'bg-slate-100 text-slate-700'
+                                  : 'bg-amber-50 text-amber-800'
+                          }`}
+                        >
+                          {statusLabel[listing.status] || listing.status}
+                        </span>
 
-                      {listing.rejection_reason && (
-                        <div className="mt-1 max-w-xs text-xs text-red-600">
-                          {listing.rejection_reason}
+                        {listing.rejection_reason && (
+                          <div className="mt-1 max-w-xs text-xs text-red-600">
+                            {listing.rejection_reason}
+                          </div>
+                        )}
+                      </td>
+
+                      <td>
+                        {formatMoney(listing.price)}/
+                        {listing.period.replace('an', '')}
+                      </td>
+
+                      <td>{formatDate(listing.updated_at)}</td>
+
+                      <td>
+                        <div className="flex items-center gap-3">
+                          {listing.status !== 'archived' && (
+                            <>
+                              <Link
+                                href={`/dashboard/edit/${listing.id}`}
+                                className="font-bold text-emerald-800"
+                              >
+                                Edit
+                              </Link>
+
+                              <form action={archiveListing}>
+                                <input
+                                  type="hidden"
+                                  name="listing_id"
+                                  value={listing.id}
+                                />
+                                <button
+                                  type="submit"
+                                  className="inline-flex items-center gap-1 font-bold text-slate-600 hover:text-red-700"
+                                >
+                                  <Archive size={15} />
+                                  Arsipkan
+                                </button>
+                              </form>
+                            </>
+                          )}
+
+                          {listing.status === 'archived' && (
+                            <form action={restoreListing}>
+                              <input
+                                type="hidden"
+                                name="listing_id"
+                                value={listing.id}
+                              />
+                              <button
+                                type="submit"
+                                className="font-bold text-emerald-700"
+                              >
+                                Pulihkan
+                              </button>
+                            </form>
+                          )}
                         </div>
-                      )}
-                    </td>
+                      </td>
+                    </tr>
+                  ))}
 
-                    <td>
-                      {formatMoney(listing.price)}/
-                      {listing.period.replace('an', '')}
-                    </td>
+                  {!listings?.length && (
+                    <tr>
+                      <td colSpan={5} className="py-10 text-center text-slate-400">
+                        Belum ada properti.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-                    <td>{formatDate(listing.updated_at)}</td>
+          {/* DAFTAR PRODUK MAHASISWA */}
+          <section className="rounded-3xl bg-white p-6 card-shadow">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="display text-2xl font-bold text-emerald-950">
+                  Produk Mahasiswa Saya
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Pantau status moderasi produk yang Anda jual.
+                </p>
+              </div>
 
-                    <td>
-  <div className="flex items-center gap-3">
-    {listing.status !== 'archived' && (
-      <>
-        <Link
-          href={`/dashboard/edit/${listing.id}`}
-          className="font-bold text-emerald-800"
-        >
-          Edit
-        </Link>
+              <Link
+                href="/dashboard/produk-baru"
+                className="font-bold text-emerald-800"
+              >
+                + Tambah produk
+              </Link>
+            </div>
 
-        <form action={archiveListing}>
-          <input
-            type="hidden"
-            name="listing_id"
-            value={listing.id}
-          />
+            {usedProductsError ? (
+              <div className="mt-5 rounded-2xl bg-red-50 p-4 text-sm text-red-700">
+                Produk mahasiswa gagal dimuat. Silakan periksa izin akses
+                tabel used_products di Supabase.
+                <p className="mt-2 text-xs">
+                  Detail: {usedProductsError.message}
+                </p>
+              </div>
+            ) : (
+              <div className="mt-6 overflow-x-auto">
+                <table className="w-full min-w-[650px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-stone-200 text-slate-500">
+                      <th className="py-3">Nama Produk</th>
+                      <th>Kategori</th>
+                      <th>Status</th>
+                      <th>Harga</th>
+                      <th>Diubah</th>
+                    </tr>
+                  </thead>
 
-          <button
-            type="submit"
-            className="inline-flex items-center gap-1 font-bold text-slate-600 hover:text-red-700"
-          >
-            <Archive size={15} />
-            Arsipkan
-          </button>
-        </form>
-      </>
-    )}
+                  <tbody>
+                    {products.map((product: any) => (
+                      <tr
+                        key={product.id}
+                        className="border-b border-stone-100"
+                      >
+                        <td className="py-4 font-semibold">
+                          {product.title}
+                        </td>
 
-    {listing.status === 'archived' && (
-      <form action={restoreListing}>
-        <input
-          type="hidden"
-          name="listing_id"
-          value={listing.id}
-        />
+                        <td className="capitalize">
+                          {(product.category || '-').replaceAll('_', ' ')}
+                        </td>
 
-        <button
-          type="submit"
-          className="inline-flex items-center gap-1 font-bold text-emerald-700 hover:text-emerald-900"
-        >
-          Pulihkan
-        </button>
-      </form>
-    )}
-  </div>
-</td>
-                  </tr>
-                ))}
+                        <td>
+                          <span
+                            className={`badge ${
+                              product.status === 'approved'
+                                ? 'bg-emerald-50 text-emerald-800'
+                                : product.status === 'rejected'
+                                  ? 'bg-red-50 text-red-800'
+                                  : product.status === 'archived'
+                                    ? 'bg-slate-100 text-slate-700'
+                                    : 'bg-amber-50 text-amber-800'
+                            }`}
+                          >
+                            {statusLabel[product.status] || product.status}
+                          </span>
 
-                {!(listings?.length) && (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="py-12 text-center text-slate-400"
-                    >
-                      Belum ada listing.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                          {product.rejection_reason && (
+                            <div className="mt-1 max-w-xs text-xs text-red-600">
+                              {product.rejection_reason}
+                            </div>
+                          )}
+                        </td>
+
+                        <td>{formatMoney(product.price)}</td>
+
+                        <td>
+                          {product.updated_at
+                            ? formatDate(product.updated_at)
+                            : '-'}
+                        </td>
+                      </tr>
+                    ))}
+
+                    {!products.length && (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="py-10 text-center text-slate-400"
+                        >
+                          Belum ada produk mahasiswa.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
 
         <aside className="rounded-3xl bg-white p-6 card-shadow">
           <h2 className="display text-2xl font-bold text-emerald-950">

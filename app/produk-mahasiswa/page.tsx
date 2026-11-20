@@ -1,146 +1,125 @@
 ﻿
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { isSupabaseConfigured } from '@/lib/app-config';
-import { getApprovedUsedProducts } from '@/lib/supabase/used-products';
 
-const categoryLabels: Record<string, string> = {
-  buku: 'Buku',
-  elektronik: 'Elektronik',
-  perlengkapan_kos: 'Perlengkapan Kos',
-  pakaian: 'Pakaian',
-  olahraga_hobi: 'Olahraga dan Hobi',
-  lainnya: 'Lainnya',
-};
+export const dynamic = 'force-dynamic';
 
-const conditionLabels: Record<string, string> = {
-  seperti_baru: 'Seperti Baru',
-  sangat_baik: 'Sangat Baik',
-  baik: 'Baik',
-  layak_pakai: 'Layak Pakai',
-};
-
-function formatPrice(price: number) {
-  if (price === 0) return 'Gratis';
+function formatRupiah(value: number | null | undefined) {
+  if (value == null) return '-';
 
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     maximumFractionDigits: 0,
-  }).format(price);
+  }).format(value);
 }
 
 export default async function ProdukMahasiswaPage() {
-  let products: Awaited<
-    ReturnType<typeof getApprovedUsedProducts>
-  > = [];
-  let errorMessage = '';
+  const supabase = await createClient();
 
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = await createClient();
-      products = await getApprovedUsedProducts(supabase);
-    } catch {
-      errorMessage = 'Katalog belum dapat dimuat. Coba kembali nanti.';
-    }
-  } else {
-    errorMessage = 'Database belum tersambung.';
+  const { data: products, error } = await supabase
+    .from('used_products')
+    .select(
+      'id, title, description, price, image_urls, category, item_condition, city, area, status, sale_status, created_at'
+    )
+    .eq('status', 'approved')
+    .eq('sale_status', 'available')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('GAGAL MEMUAT PRODUK MAHASISWA:', error);
+
+    return (
+      <main className="mx-auto max-w-6xl px-4 py-16">
+        <h1 className="text-3xl font-bold text-emerald-950">
+          Produk Mahasiswa
+        </h1>
+        <p className="mt-4 rounded-xl bg-red-50 p-4 text-red-700">
+          Gagal memuat produk: {error.message}
+        </p>
+      </main>
+    );
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <section className="mb-8 rounded-3xl bg-slate-900 px-6 py-10 text-white sm:px-10">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-emerald-300">
-          SYUZISHIM - Produk Mahasiswa
-        </p>
-
-        <h1 className="text-3xl font-bold sm:text-4xl">
-          Barang layak pakai, harga bersahabat.
+    <main className="mx-auto max-w-6xl px-4 py-12">
+      <div>
+        <h1 className="text-3xl font-bold text-emerald-950">
+          Produk Mahasiswa
         </h1>
 
-        <p className="mt-4 max-w-2xl text-slate-300">
-          Temukan buku, elektronik, dan kebutuhan mahasiswa dari sesama
-          mahasiswa. Hubungi penjual untuk menanyakan barang yang kamu minati.
+        <p className="mt-2 text-gray-600">
+          Temukan produk bekas layak pakai antarmahasiswa
+          dengan harga terjangkau.
         </p>
+      </div>
 
-        <Link
-          href="/dashboard"
-          className="mt-6 inline-flex rounded-xl bg-emerald-400 px-5 py-3 font-semibold text-slate-950 hover:bg-emerald-300"
-        >
-          Jual Barang
-        </Link>
-      </section>
-
-      {errorMessage ? (
-        <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
-          {errorMessage}
-        </p>
-      ) : products.length === 0 ? (
-        <section className="rounded-2xl border border-dashed border-slate-300 p-10 text-center">
-          <h2 className="text-xl font-semibold">
-            Belum ada produk tayang
-          </h2>
-          <p className="mt-2 text-slate-600">
-            Produk yang lolos moderasi akan muncul di halaman ini.
-          </p>
-        </section>
-      ) : (
-        <section>
-          <h2 className="mb-5 text-2xl font-bold">Produk tersedia</h2>
-
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {products.map((product) => (
-              <article
-                key={product.id}
-                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-              >
-                {product.image_urls?.[0] ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={product.image_urls[0]}
-                    alt={product.title}
-                    className="h-52 w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-52 items-center justify-center bg-slate-100 text-slate-400">
-                    Foto belum tersedia
-                  </div>
-                )}
-
-                <div className="p-5">
-                  <p className="text-sm text-slate-500">
-                    {categoryLabels[product.category] ?? product.category}
-                    {' - '}
-                    {conditionLabels[product.item_condition] ??
-                      product.item_condition}
-                  </p>
-
-                  <h3 className="mt-2 text-lg font-semibold text-slate-900">
-                    {product.title}
-                  </h3>
-
-                  <p className="mt-2 text-xl font-bold text-emerald-700">
-                    {formatPrice(product.price)}
-                  </p>
-
-                  <p className="mt-2 text-sm text-slate-600">
-                    {[product.area, product.city]
-                      .filter(Boolean)
-                      .join(', ')}
-                  </p>
-
-                  <p className="mt-3 line-clamp-3 text-sm text-slate-600">
-                    {product.description}
-                  </p>
-
-                  <p className="mt-4 text-sm font-medium text-slate-500">
-                    Hubungi penjual untuk informasi lebih lanjut.
-                  </p>
+      <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {(products ?? []).map((product) => (
+          <Link
+            key={product.id}
+            href={`/produk-mahasiswa/${product.id}`}
+            className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md"
+          >
+            <div className="aspect-video w-full overflow-hidden bg-gray-100">
+              {product.image_urls?.[0] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={product.image_urls[0]}
+                  alt={product.title}
+                  className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-gray-400">
+                  Tanpa gambar
                 </div>
-              </article>
-            ))}
-          </div>
-        </section>
+              )}
+            </div>
+
+            <div className="p-4">
+              <div className="mb-2 flex flex-wrap gap-2">
+                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+                  {product.category?.replaceAll('_', ' ') || 'Lainnya'}
+                </span>
+
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
+                  {product.item_condition?.replaceAll('_', ' ') || '-'}
+                </span>
+              </div>
+
+              <h2 className="font-semibold text-gray-900 group-hover:text-emerald-700">
+                {product.title}
+              </h2>
+
+              <p className="mt-2 text-lg font-bold text-emerald-700">
+                {formatRupiah(product.price)}
+              </p>
+
+              {(product.city || product.area) && (
+                <p className="mt-1 text-sm text-gray-500">
+                  {[product.area, product.city].filter(Boolean).join(', ')}
+                </p>
+              )}
+
+              {product.description && (
+                <p className="mt-2 line-clamp-2 text-sm text-gray-500">
+                  {product.description}
+                </p>
+              )}
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {products?.length === 0 && (
+        <div className="mt-10 rounded-2xl bg-gray-50 px-5 py-12 text-center">
+          <h2 className="text-lg font-semibold text-gray-700">
+            Belum ada produk yang tersedia.
+          </h2>
+          <p className="mt-2 text-sm text-gray-500">
+            Produk akan ditampilkan setelah disetujui oleh moderator.
+          </p>
+        </div>
       )}
     </main>
   );
